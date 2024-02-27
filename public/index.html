@@ -1,0 +1,204 @@
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=0.75" />
+    <link
+      rel="stylesheet"
+      type="text/css"
+      href="https://cdn.jsdelivr.net/npm/toastify-js/src/toastify.min.css"
+    />
+
+    <title>資產盤點系統</title>
+    <style>
+      body {
+        text-align: center;
+        background-color: #f0f0f0;
+      }
+      #qr-reader {
+        display: none;
+        margin: 20px auto;
+        width: 50%;
+      }
+
+      #assetListTable {
+        width: 90%;
+        margin: 0 auto;
+        border-collapse: collapse;
+        margin-top: 20px;
+      }
+
+      #assetListTable th,
+      #assetListTable td {
+        border: 1px solid #6c6c6c;
+        padding: 8px;
+        text-align: center;
+      }
+
+      #assetListTable th {
+        background-color: #cdcd9a;
+      }
+      #qr-reader-results {
+        font-size: 18px;
+        margin-bottom: 10px;
+        width: 80%;
+        padding: 10px;
+        border: 1px solid #ccc;
+        border-radius: 5px;
+        display: none;
+        color: black;
+      }
+      button {
+        background-color: #690901;
+        color: #fff;
+        padding: 5px 10px;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        transition: background-color 0.3s ease;
+      }
+      button:hover {
+        background-color: #8d0c01;
+      }
+    </style>
+  </head>
+  <body>
+    <label for="employeeId">請輸入保管員工編號：</label>
+    <input type="text" id="employeeId" />
+    <button onclick="startScanning()">搜尋</button>
+    <div id="qr-reader" style="width: 500px"></div>
+    <div id="qr-reader-results"></div>
+    <table id="assetListTable">
+      <thead>
+        <tr>
+          <th>號碼</th>
+          <th style="width: 25%">序號</th>
+          <th>資產說明</th>
+          <th>資產說明二</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody id="assetList"></tbody>
+    </table>
+
+    <script src="https://unpkg.com/html5-qrcode"></script>
+    <script
+      type="text/javascript"
+      src="https://cdn.jsdelivr.net/npm/toastify-js"
+    ></script>
+    <script>
+      function docReady(fn) {
+        if (
+          document.readyState === "complete" ||
+          document.readyState === "interactive"
+        ) {
+          setTimeout(fn, 1);
+        } else {
+          document.addEventListener("DOMContentLoaded", fn);
+        }
+      }
+
+      docReady(function () {
+        var resultContainer = document.getElementById("qr-reader-results");
+        var lastResult,
+          countResults = 0;
+        var html5QrcodeScanner = new Html5QrcodeScanner("qr-reader", {
+          fps: 10,
+          qrbox: { width: 250, height: 100 },
+          rememberLastUsedCamera: false,
+        });
+
+        function onScanSuccess(decodedText, decodedResult) {
+          if (decodedText !== lastResult) {
+            lastResult = decodedText;
+            //console.log(`Scan result ${decodedText}`, decodedResult);
+            checkMatchingAsset(decodedText);
+          }
+        }
+
+        html5QrcodeScanner.render(onScanSuccess);
+      });
+
+      function startScanning() {
+        document.getElementById("qr-reader").style.display = "block";
+        document.getElementById("qr-reader-results").style.display =
+          "inline-block";
+
+        var employeeId = document.getElementById("employeeId").value;
+
+        fetch(`/api/assetList?employeeId=${employeeId}`)
+          .then((response) => response.json())
+          .then((data) => updateAssetList(data))
+          .catch((error) => console.error("Error:", error));
+      }
+      function updateAssetList(assetList) {
+        var assetListTable = document.getElementById("assetList");
+        assetListTable.innerHTML = "";
+
+        assetList.forEach(function (asset) {
+          var row = assetListTable.insertRow();
+          var cell1 = row.insertCell(0);
+          var cell2 = row.insertCell(1);
+          var cell3 = row.insertCell(2);
+          var cell4 = row.insertCell(3);
+          var cell5 = row.insertCell(4);
+
+          var checkbox = document.createElement("input");
+          checkbox.type = "checkbox";
+          checkbox.id = asset[1].trim();
+          cell1.textContent = asset[0];
+          cell2.textContent = asset[1];
+          cell3.textContent = asset[2];
+          cell4.textContent = asset[3];
+          cell5.appendChild(checkbox);
+        });
+      }
+      function checkMatchingAsset(decodedText) {
+        var assetListDiv = document.getElementById("assetList");
+        var foundMatch = false;
+        var scanMessageDiv = document.getElementById("qr-reader-results");
+        var checkboxes = assetListDiv.querySelectorAll(
+          'input[type="checkbox"]'
+        );
+
+        checkboxes.forEach(function (checkbox) {
+          var assetId = checkbox.getAttribute("id");
+          if (decodedText === assetId) {
+            checkbox.checked = true;
+            var row = checkbox.closest("tr");
+            var cells = row.querySelectorAll("td");
+            var numb = cells[0].textContent;
+            var DL01 = cells[2].textContent;
+            var DL02 = cells[3].textContent;
+            showSuccessToast(`資產序號: ${decodedText}，已成功盤點。`);
+            scanMessageDiv.innerHTML = `資產號碼:${numb}<br>資產序號:${decodedText}<br>${DL01}<br>${DL02}<br>已成功盤點。`;
+            scanMessageDiv.style.color = "green";
+            foundMatch = true;
+          }
+        });
+        if (!foundMatch) {
+          showErrorToast(`資產序號: ${decodedText}，不存在於此清單中。`);
+          scanMessageDiv.textContent = `資產序號: ${decodedText}，不存在於此清單中。`;
+          scanMessageDiv.style.color = "red";
+        }
+      }
+      function showSuccessToast(message) {
+        Toastify({
+          text: message,
+          duration: 3000,
+          backgroundColor: "linear-gradient(to right, #00b09b, #96c93d)",
+          gravity: "top",
+          position: "center",
+        }).showToast();
+      }
+      function showErrorToast(message) {
+        Toastify({
+          text: message,
+          duration: 3000,
+          backgroundColor: "linear-gradient(to right, #e74c3c, #c0392b)",
+          gravity: "top",
+          position: "center",
+        }).showToast();
+      }
+    </script>
+  </body>
+</html>
