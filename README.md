@@ -8,4 +8,5 @@
 
 *若想執行請使用nodejs架設伺服器 注意oracle資料庫連結部分需要填入才可運行
 
-![21A7151D-DB29-49B9-8AAC-30431DEC3059](https://github.com/TouHunp/scancode/assets/114973441/640c8287-630f-4fc3-83ef-c5802c1c15a7)
+
+![Uploading 21A7151D-DB29-49B9-8AAC-30431DEC3059.jpg…]()
